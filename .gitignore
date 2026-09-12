@@ -1,0 +1,10 @@
+# Ignorar pasta de dados locais pesados
+Dados/
+
+# Ignorar credenciais e arquivos temporários
+.env
+*.pem
+*.json
+.DS_Store
+Thumbs.db
+.vscode/
