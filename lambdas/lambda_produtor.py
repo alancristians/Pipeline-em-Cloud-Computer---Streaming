@@ -14,16 +14,31 @@ def lambda_handler(event, context):
         key = record['s3']['object']['key']
         
         response = s3_client.get_object(Bucket=bucket, Key=key)
-        # Decodificação em latin1 para aceitar acentuação em português
         content = response['Body'].read().decode('latin1')
         
         csv_file = StringIO(content)
         reader = csv.DictReader(csv_file, delimiter=';')
         
-        for row in reader:
-            sqs_client.send_message(
+        entries = []
+        for i, row in enumerate(reader):
+            entries.append({
+                'Id': str(i),
+                'MessageBody': json.dumps(row, ensure_ascii=False)
+            })
+            
+            # Envia em lotes de 10 mensagens
+            if len(entries) == 10:
+                sqs_client.send_message_batch(
+                    QueueUrl=SQS_QUEUE_URL,
+                    Entries=entries
+                )
+                entries = []
+        
+        # Envia o restante caso a contagem final não seja múltiplo de 10
+        if entries:
+            sqs_client.send_message_batch(
                 QueueUrl=SQS_QUEUE_URL,
-                MessageBody=json.dumps(row, ensure_ascii=False)
+                Entries=entries
             )
             
-    return {'status': 200, 'message': 'Eventos enviados para a fila com sucesso'}
+    return {'status': 200, 'message': 'Eventos enviados em lote para a fila com sucesso'}
