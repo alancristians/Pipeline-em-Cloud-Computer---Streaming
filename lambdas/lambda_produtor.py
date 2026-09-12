@@ -14,7 +14,8 @@ def lambda_handler(event, context):
         key = record['s3']['object']['key']
         
         response = s3_client.get_object(Bucket=bucket, Key=key)
-        content = response['Body'].read().decode('utf-8-sig')
+        # Decodificação em latin1 para aceitar acentuação em português
+        content = response['Body'].read().decode('latin1')
         
         csv_file = StringIO(content)
         reader = csv.DictReader(csv_file, delimiter=';')
@@ -22,7 +23,7 @@ def lambda_handler(event, context):
         for row in reader:
             sqs_client.send_message(
                 QueueUrl=SQS_QUEUE_URL,
-                MessageBody=json.dumps(row)
+                MessageBody=json.dumps(row, ensure_ascii=False)
             )
             
     return {'status': 200, 'message': 'Eventos enviados para a fila com sucesso'}
