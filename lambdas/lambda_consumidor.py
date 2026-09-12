@@ -7,7 +7,6 @@ s3_client = boto3.client('s3')
 DEST_BUCKET = os.environ['DEST_BUCKET']
 
 def criar_banco_memoria():
-    # Cria um banco relacional em memória RAM para a execução da Lambda
     conn = sqlite3.connect(':memory:')
     cursor = conn.cursor()
     
@@ -19,12 +18,18 @@ def criar_banco_memoria():
         )
     ''')
     
-    # Carga da dimensão relacional
+    # Carga de dimensões relacionais com os CNPJs reais do CSV
     dados_instituicoes = [
-        ('00000000', 'BANCO DO BRASIL S.A.', 'Banco Múltiplo'),
-        ('60701190', 'ITAU UNIBANCO S.A.', 'Banco Múltiplo'),
-        ('60746948', 'BANCO BRADESCO S.A.', 'Banco Múltiplo'),
-        ('00360305', 'CAIXA ECONOMICA FEDERAL', 'Caixa Econômica')
+        ('27098060', 'BANCO DIGIO S.A.', 'Banco/financeira'),
+        ('08357240', 'BANCO CSF S.A.', 'Banco/financeira'),
+        ('92874270', 'BANCO DIGIMAIS S.A.', 'Banco/financeira'),
+        ('36321990', 'AGORACRED S/A', 'Banco/financeira'),
+        ('27214112', 'AL5 S.A. CRÉDITO', 'Banco/financeira'),
+        ('04902979', 'BANCO DA AMAZONIA S.A.', 'Banco/financeira'),
+        ('13009717', 'BANCO DO ESTADO DE SERGIPE S.A.', 'Banco/financeira'),
+        ('07237373', 'BANCO DO NORDESTE DO BRASIL S.A.', 'Banco/financeira'),
+        ('43180355', 'PEFISA S.A.', 'Banco/financeira'),
+        ('05503849', 'SANTANA S.A.', 'Banco/financeira')
     ]
     
     cursor.executemany('INSERT INTO dim_instituicao VALUES (?, ?, ?)', dados_instituicoes)
@@ -41,7 +46,7 @@ def lambda_handler(event, context):
             body = json.loads(record['body'])
             cnpj = str(body.get('CNPJ IF') or body.get('CNPJ') or '').strip()
 
-            # Execução de solicitação SQL relacional para enriquecimento
+            # Consulta SQL relacional executada contra a tabela em memória
             cursor.execute("SELECT nome, segmento FROM dim_instituicao WHERE cnpj = ?", (cnpj,))
             resultado = cursor.fetchone()
 
@@ -54,7 +59,6 @@ def lambda_handler(event, context):
 
             mensagens_processadas.append(body)
 
-        # Gravação do payload tratado e enriquecido no S3
         arquivo_chave = f"delivery/dados_enriquecidos_{context.aws_request_id}.json"
         s3_client.put_object(
             Bucket=DEST_BUCKET,
